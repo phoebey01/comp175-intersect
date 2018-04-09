@@ -1,0 +1,2 @@
+build:
+	g++ -Wall -Wextra *.cpp -I/Library/Frameworks/GLUI.framework/Headers/ -framework OpenGL -framework GLUT -lglui -o Assignment4
