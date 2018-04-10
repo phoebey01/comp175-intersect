@@ -12,13 +12,70 @@ public:
     ~Cylinder() {};
     
     double Intersect(Point eyePointP, Vector rayV, Matrix transformMatrix) {
-        return 0;
+        
+        Vector eye = invert(transformMatrix) * Vector(eyePointP[0], eyePointP[1], eyePointP[2]);
+        
+        Vector dhat = invert(transformMatrix) * normalize(rayV);
+        
+        double t = 1000000;
+        double A = dhat[0] * dhat[0] + dhat[2] * dhat[2];
+        double B = 2*eye[0]*dhat[0] + 2*eye[2]*dhat[2];
+        double C = eye[0] * eye[0] + eye[2]*eye[2] - 0.25;
+        
+        double discriminate = (B*B) - (4*A*C);
+        
+        if (discriminate < 0 || (A==0)) {
+            return -1;
+        }
+        
+        double t0 = ((-B) - sqrt(discriminate)) / (2*A);
+        double t1 = ((-B) + sqrt(discriminate)) / (2*A);
+        
+        double y0 = eye[1] + t0*dhat[1];
+        double y1 = eye[1] + t1*dhat[1];
+        if (t0 > 0.0 && y0 > -0.5 && y0 < 0.5) {
+            t = t0;
+        }
+        if (t1 > 0.0 && y1 > -0.5 && y1 < 0.5 && t1 < t0) {
+            t = t1;
+        }
+        
+        // For the cylinder cap
+        t0 = (0.5 - eye[1]) / dhat[1];
+        double x = eye[0] + t0 * dhat[0];
+        double z = eye[2] + t0 * dhat[2];
+        if (x > -0.5 && (x*x + z*z < 0.25) && t0 < t) {
+            t = t0;
+        }
+        
+        t0 = (-0.5 - eye[1]) / dhat[1];
+        x = eye[0] + t0 * dhat[0];
+        z = eye[2] + t0 * dhat[2];
+        if(x > -0.5 && (x*x + z*z < 0.25) && t0 < t) {
+            t = t0;
+        }
+        if (t == 1000000)
+            return -1;
+        return t;
+        
     };
 
     Vector findIsectNormal(Point eyePoint, Vector ray, double dist) {
-        Vector v;
-        return v;
+        Point intersect = eyePoint + (ray * dist);
+        
+        //caps
+        float offset = 0.00000005;
+        if(fabs(intersect[1] + 0.5) < offset)
+            return Vector(0.0, -1.0, 0.0);
+        if(fabs(intersect[1] - 0.5) < offset)
+            return Vector(0.0, 1.0, 0.0);
+        
+        //tube
+        Vector norm = Vector(intersect[0], 0.0, intersect[2]);
+        norm.normalize();
+        return norm;
     };
+
 
 protected:
     PVList getPoints(int segX, int segY) {

@@ -20,6 +20,9 @@ public:
     Matrix GetProjectionMatrix();
     Matrix GetModelViewMatrix();
 
+    Matrix GetXyz2UvwMatrix();
+    Matrix GetUvw2XyzMatrix();
+
     void RotateV(double angle);
     void RotateU(double angle);
     void RotateW(double angle);
@@ -37,6 +40,10 @@ public:
 
     double GetFilmPlaneDepth();
     double GetScreenWidthRatio();
+
+    Vector GetUBasis();
+    Vector GetVBasis();
+    Vector GetWBasis();
 
 protected:
     // member vars

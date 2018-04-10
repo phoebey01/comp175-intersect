@@ -30,7 +30,7 @@ float lookZ = -2;
 
 /** These are GLUI control panel objects ***/
 int  main_window;
-string filenamePath = "data/general/test.xml";
+string filenamePath = "data/general/unit_sphere.xml";
 GLUI_EditText* filenameTextField = NULL;
 GLubyte* pixels = NULL;
 int pixelWidth = 0, pixelHeight = 0;
@@ -44,13 +44,122 @@ Sphere* sphere = new Sphere();
 SceneParser* parser = NULL;
 Camera* camera = new Camera();
 
+
 void setupCamera();
 void updateCamera();
+
+/********* Scene Objects ***************/
+Shape* shape = NULL;
+/** these are the global variables used for rendering **/
+struct SceneObj {
+    Matrix transform; // for glMultMatrix
+    ScenePrimitive *prim; // for drawing
+};
+vector<SceneObj> objs; // flattened scene from parser
+
+void flattenScene(SceneNode *root, Matrix parent, vector<SceneObj> &objs);
+
+
+void objectShape (int shapeType) {
+	switch (shapeType) {
+	case SHAPE_CUBE:
+		shape = cube;
+		break;
+	case SHAPE_CYLINDER:
+		shape = cylinder;
+		break;
+	case SHAPE_CONE:
+		shape = cone;
+		break;
+	case SHAPE_SPHERE:
+		shape = sphere;
+		break;
+	default:
+		shape = cube;
+	}
+}
+
+Vector generateRay(int pixelX, int pixelY) {
+   
+    float px = (2.0 * pixelX / (double)pixelWidth) - 1;
+    float py = 1 - (2.0 * pixelY / (double)pixelHeight);
+    
+    Point pointV = Point(px, py, -1.0);
+    
+    pointV = (camera -> GetUvw2XyzMatrix()) * pointV;
+    
+    Vector rayV = pointV - (camera -> GetEyePoint());
+    rayV.normalize();
+    
+    return rayV;
+    
+}
+
+Point getEyePoint() {
+	Point eye = camera->GetEyePoint();
+	return eye;
+}
+
+Point getIsectPointWorldCoord(Point eye, Vector ray, double t) {
+	Point p = eye + t * ray;
+	return p;
+}
 
 void setPixel(GLubyte* buf, int x, int y, int r, int g, int b) {
 	buf[(y*pixelWidth + x) * 3 + 0] = (GLubyte)r;
 	buf[(y*pixelWidth + x) * 3 + 1] = (GLubyte)g;
 	buf[(y*pixelWidth + x) * 3 + 2] = (GLubyte)b;
+}
+
+void illuminate(int obj, Vector N, Point isectPoint, int x, int y) {
+	SceneGlobalData global;
+	SceneLightData light;
+	int m;
+	double ka, kd, ks;
+	double r, g, b;
+	Vector L; Vector R; Vector V;
+
+	parser -> getGlobalData(global);
+	ka = global.ka;
+	kd = global.kd;
+	ks = global.ks;
+	m = parser->getNumLights();
+	float* O_a = objs[obj].prim->material.cAmbient.channels;
+	float* O_d = objs[obj].prim->material.cDiffuse.channels;
+	float* O_s = objs[obj].prim->material.cSpecular.channels;
+
+	// cout << "ka: " << ka << "kd: " << kd << "ks: " << ks<< endl;
+
+	r = ka * O_a[0];
+	g = ka * O_a[1];
+	b = ka * O_a[2];
+
+ 	for (int i=0; i<m; i++){
+    	parser->getLightData(i, light);
+    	float* light_rgb = light.color.channels;
+    	// cout << "Light: " << light_rgb[0] << light_rgb[1] << light_rgb[2] << endl;
+    	// cout << "O_D: "<< O_d[0] << O_d[1] << O_d[2] << endl;
+    	// cout << "O_s: "<< O_s[0] << O_s[1] << O_s[2] << endl;
+
+    	Vector p = (light.pos - isectPoint);
+    	L = normalize(p);
+    	R = L - 2*(dot(L, N)) * N;
+    	V = camera->GetLookVector();
+
+
+    	// cout << "R and V: " << dot(R,V) << " " << dot(N,L) << endl;
+
+    	r += light_rgb[0]*kd*O_d[0]*dot(N,L) + ks*O_s[0]*dot(R,V);
+    	g += light_rgb[1]*kd*O_d[1]*dot(N,L) + ks*O_s[1]*dot(R,V);
+    	b += light_rgb[2]*kd*O_d[2]*dot(N,L) + ks*O_s[2]*dot(R,V);
+
+    	setPixel(pixels, x, y, r*255, g*255, b*255);
+
+    	cout << "R: " << r*255 << " G: " << g*255 << " B:" << b*255 << endl;
+	}
+
+	
+
 }
 
 void callback_start(int id) {
@@ -76,14 +185,47 @@ void callback_start(int id) {
 
 	for (int i = 0; i < pixelWidth; i++) {
 		for (int j = 0; j < pixelHeight; j++) {
-			// TODO: 1) find closest obj intersection 2) illuminate w/ r g b
-			//replace the following code
-			if ((i % 5 == 0) && (j % 5 == 0)) {
-				setPixel(pixels, i, j, 255, 0, 0);
+			/* Pseudo:
+			for primitives in the scene: 
+				1) find out shape 
+				2) get eyepoint, matrix, generate rays
+				3) call intersect, get t
+			 	4) check if t>0, then color w/ normal
+			 	5) illuminate w/ r g b, setpixel color
+			*/
+
+			Vector rayV = generateRay(i, j);
+			Point eyePointP = getEyePoint();
+			Matrix m;
+
+			double min_t = -1;
+			int closest_obj = 0;
+
+			for (int k=0; k<objs.size(); k++){
+				ScenePrimitive *prim = objs[k].prim;
+				objectShape(prim->type);
+
+				double t = shape->Intersect(eyePointP, rayV, objs[k].transform);
+
+				if (min_t == -1){
+					min_t = t;
+				} else if (t < min_t && t>0) {
+					min_t = t;
+					closest_obj = k;
+					m = objs[k].transform;
+				}
 			}
-			else {
-				setPixel(pixels, i, j, 128, 128, 128);
-			}
+
+			if (min_t > 0){
+				// cout << "pixels: " << i << j << endl;
+				// cout << "min_t: " << min_t << " obj: " << closest_obj << endl;
+
+				Point isectPoint = getIsectPointWorldCoord(eyePointP, rayV, min_t);
+				Vector normal = transpose(invert(m)) * shape->findIsectNormal(eyePointP, rayV, min_t);
+				normal = normalize(normal);
+				illuminate(closest_obj, normal, isectPoint, i, j);
+			} 
+			
 		}
 	}
 	glutPostRedisplay();
@@ -101,10 +243,65 @@ void callback_load(int id) {
 	if (parser != NULL) {
 		delete parser;
 	}
+
 	parser = new SceneParser (filenamePath);
 	cout << "success? " << parser->parse() << endl;
 
 	setupCamera();
+
+	if (!objs.empty())
+		objs.clear();
+
+    flattenScene(parser->getRootNode(), Matrix(), objs);
+}
+
+/***************************************** Parsing scenenode  *****************/
+
+// applyTransformation
+//      - applies a scene transformation to the current matrix stack
+inline Matrix applyTransformation(SceneTransformation *trans) {
+    Vector v;
+    switch (trans->type) {
+        case TRANSFORMATION_TRANSLATE:
+            return trans_mat(trans->translate);
+        case TRANSFORMATION_SCALE:
+            return scale_mat(trans->scale);
+        case TRANSFORMATION_ROTATE:
+            return rot_mat(trans->rotate, trans->angle);
+        case TRANSFORMATION_MATRIX:
+        	return trans->matrix;
+    }
+}
+
+
+inline Matrix collapseTransformations(std::vector<SceneTransformation *> xfs) {
+    Matrix M;
+    for (auto xf : xfs) {
+        M = M * applyTransformation(xf);
+    }
+    return M;
+}
+
+// flattenScene
+//      - converts a parse tree to a 1d array of SceneObjs
+void flattenScene(SceneNode *root, Matrix parent, vector<SceneObj> &objs) {
+    Matrix transform; //current transform matrix
+
+    // apply all transformations
+    transform = parent * collapseTransformations(root->transformations);
+
+    // push all primitives onto objs with transform
+    size_t nprims = root->primitives.size();
+    for (size_t i = 0; i < nprims; i++) {
+        SceneObj obj = { transform, root->primitives[i] };
+        objs.push_back(obj);
+    }
+
+    // recurse on children
+    size_t nnodes = root->children.size();
+    for (size_t i = 0; i < nnodes; i++)
+        flattenScene(root->children[i], transform, objs);
+
 }
 
 
@@ -153,6 +350,7 @@ void setupCamera()
 	else {
 		camera->Orient(cameraData.pos, cameraData.lookAt, cameraData.up);
 	}
+	camera->SetScreenSize(screenWidth, screenHeight);
 
 	viewAngle = camera->GetViewAngle();
 	Point eyeP = camera->GetEyePoint();

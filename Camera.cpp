@@ -88,8 +88,9 @@ Camera::~Camera() {
 
 void Camera::Reset() {
     // set defaults, somewhat meaningless tho
-    Point eyeP = Point(2, 2, 2);
-    Vector look = Vector(-2, -2, -2);
+    // Point eyeP = Point(2, 2, 2);
+    Point eyeP = Point(0.0, 0.0, 5.0);
+    Vector look = Vector(0, 0, -1);
     Vector up = Vector(0, 1, 0);
     Orient(eyeP, look, up);
 
@@ -152,6 +153,16 @@ Vector Camera::GetUpVector() {
               // direction is what matters
 }
 
+Vector Camera::GetUBasis(){
+    return ub;
+}
+Vector Camera::GetVBasis(){
+    return vb;
+}
+Vector Camera::GetWBasis(){
+    return wb;
+}
+
 double Camera::GetViewAngle() {
     return RAD_TO_DEG(heightAngle);
 }
@@ -198,6 +209,19 @@ Matrix Camera::GetModelViewMatrix() {
     return rotateNorm() * translateNorm();
 }
 
+Matrix Camera::GetXyz2UvwMatrix() {
+    return Matrix(ub[0], ub[1], ub[2], 0,
+                  vb[0], vb[1], vb[2], 0,
+                  wb[0], wb[1], wb[2], 0,
+                  0,    0,    0,    1);
+}
+
+Matrix Camera::GetUvw2XyzMatrix() {
+    return Matrix(ub[0], vb[0], wb[0], 0,
+                  ub[1], vb[1], wb[1], 0,
+                  ub[2], vb[2], wb[2], 0,
+                  0,    0,    0,    1);
+}
 
 // ----------
 // GEOMETRY

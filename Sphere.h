@@ -5,7 +5,7 @@
 #include "Shape.h"
 #include "Utility.h"
 
-
+using namespace std;
 
 class Sphere : public Shape {
 public:
@@ -13,12 +13,32 @@ public:
     ~Sphere() {};
 
     double Intersect(Point eyePointP, Vector rayV, Matrix transformMatrix) {
-        return 0;
+        Matrix inv = invert(transformMatrix);
+
+        Vector eye = inv* Vector(eyePointP[0], eyePointP[1], eyePointP[2]);
+        Vector d = inv * normalize(rayV);
+
+        double A, B, C;
+        A = dot(d, d);
+        B = 2 * dot (eye, d );
+        C = dot (eye, eye) - .5 * .5;
+
+        if ((B*B - 4*A*C) < 0 or (A == 0))
+            return -1;
+
+        double t1, t2;
+        t1 = (-B + sqrt(B*B - 4*A*C)) / (2*A);
+        t2 = (-B - sqrt(B*B - 4*A*C)) / (2*A);
+
+        cout << "Intersects: " << min(t1,t2) << endl;
+
+        return min(t1,t2);
     };
 
     Vector findIsectNormal(Point eyePoint, Vector ray, double dist) {
-        Vector v;
-        return v;
+        Point p = eyePoint + dist * ray;
+        Vector v = Vector(p[0], p[1], p[2]);
+        return normalize(v);
     };
 
 protected:

@@ -10,14 +10,69 @@ public:
     Cube() {};
     ~Cube() {};
     
-    double Intersect(Point eyePointP, Vector rayV, Matrix transformMatrix) {
-        return 0;
+
+double Intersect(Point eyePointP, Vector rayV, Matrix transformMatrix) {
+        
+        Vector eye = invert(transformMatrix) * Vector(eyePointP[0], eyePointP[1], eyePointP[2]);
+        
+        Vector dhat = invert(transformMatrix) * normalize(rayV);
+        
+        double t = 1000000;
+        double tempT, temp1, temp2;
+        int side;
+        
+        for (int i = 0; i < 3; i++) {
+            tempT = (0.5 - eye[i]) / dhat[i];
+            temp1 = eye[(i + 1) % 3] + tempT * dhat[(i + 1) % 3];
+            temp2 = eye[(i + 2) % 3] + tempT * dhat[(i + 2) % 3];
+            
+            if ((tempT > 0.0) && (temp1 > -0.5) && (temp1 < 0.5) && (temp2 > -0.5) && (temp2 < 0.5)) {
+                if (tempT < t) {
+                    t = tempT;
+                    side = i;
+                }
+            }
+        }
+        for (int i = 0; i < 3; i++) {
+            tempT = (-0.5 - eye[i]) / dhat[i];
+            temp1 = eye[(i + 1) % 3] + tempT * dhat[(i + 1) % 3];
+            temp2 = eye[(i + 2) % 3] + tempT * dhat[(i + 2) % 3];
+            
+            if ((tempT > 0.0) && (temp1 > -0.5) && (temp1 < 0.5) && (temp2 > -0.5) && (temp2 < 0.5)) {
+                if (tempT < t) {
+                    t = tempT;
+                    side = i + 3;
+                }
+            }
+        }
+        if (t == 1000000) {
+            return -1;
+        }
+        return t;
+        
     };
 
     Vector findIsectNormal(Point eyePoint, Vector ray, double dist) {
-        Vector v;
-        return v;
+        Point intersect = eyePoint + (ray * dist);
+        double offset = 0.000000001;
+        Vector norm = Vector(0.0, 0.0, 0.0);
+        if(fabs(intersect[0] + 0.5) < offset)
+            norm[0] = -1;
+        if(fabs(intersect[0] - 0.5) < offset)
+            norm[0] = 1;
+        if(fabs(intersect[1] + 0.5) < offset)
+            norm[1] = -1;
+        if(fabs(intersect[1] - 0.5) < offset)
+            norm[1] = 1;
+        if(fabs(intersect[2] + 0.5) < offset)
+            norm[2] = -1;
+        if(fabs(intersect[2] - 0.5) < offset)
+            norm[2] = 1;
+        
+        norm.normalize();
+        return norm;
     };
+
 
 protected:
     PVList getPoints(int segX, int segY) {
